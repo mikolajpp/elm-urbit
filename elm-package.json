@@ -1,7 +1,7 @@
 {
     "version": "1.0.0",
     "summary": "Urbit Elm SDK",
-    "repository": "https://github.com/mikolajpp/plato-elm.git",
+    "repository": "https://github.com/mikolajpp/plato-elm",
     "license": "MIT",
     "source-directories": [
         "src/"
