@@ -1,10 +1,10 @@
-module Urb.Error exposing (emptyError, ErrResponse, fromHttpError)
+module Urb.Error exposing (emptyError, ErrResponse, ErrPayload, fromHttpError)
 
 {-| Urbit API error handling
 You need to use this module in order to be able
 to handle Urbit API calls errors
 
-@docs emptyError, ErrResponse, fromHttpError
+@docs emptyError, ErrResponse, fromHttpError, ErrPayload
 
 -}
 
@@ -35,7 +35,7 @@ error - description of error
 payload - @ErrPayload
 -}
 type alias ErrResponse =
-    { error : String
+    { desc : String
     , payload : Maybe ErrPayload
     }
 
@@ -76,16 +76,16 @@ fromHttpError : Http.Error -> ErrResponse
 fromHttpError err =
     case err of
         Http.Timeout ->
-            { error = "Urb request has timed out", payload = Nothing }
+            { desc = "Urb request has timed out", payload = Nothing }
 
         Http.NetworkError ->
-            { error = "Network error has occured. Check your connectivity.", payload = Nothing }
+            { desc = "Network error has occured. Check your connectivity.", payload = Nothing }
 
         Http.BadStatus resp ->
-            { error = "Urb bad status received: " ++ (toString resp.status.code), payload = errPayloadFromResp resp }
+            { desc = "Urb bad status received: " ++ (toString resp.status.code), payload = errPayloadFromResp resp }
 
         Http.BadUrl resp ->
-            { error = "Bad URL, unable to perform request", payload = Nothing }
+            { desc = "Bad URL, unable to perform request", payload = Nothing }
 
         Http.BadPayload err resp ->
             let
@@ -95,9 +95,9 @@ fromHttpError err =
                 case authErr of
                     Ok authResp ->
                         if authResp.ok then
-                            { error = "Redirection auth not supported.", payload = Nothing }
+                            { desc = "Redirection auth not supported.", payload = Nothing }
                         else
-                            { error = "Authentication failed. Please login.", payload = Nothing }
+                            { desc = "Authentication failed. Please login.", payload = Nothing }
 
                     Err err ->
-                        { error = "Urb received malformed response: " ++ err, payload = errPayloadFromResp resp }
+                        { desc = "Urb received malformed response: " ++ err, payload = errPayloadFromResp resp }

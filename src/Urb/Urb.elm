@@ -16,12 +16,15 @@ module Urb.Urb
         , decodePollBeat
         , decodePollPayload
         , pollDecode
+        , getErrorPayload
+        , getErrorDesc
         )
 
 {-| Urb connects your application to Urbit ship.
 @docs Model, Msg, update, init, initWith, emptyUrb
 @docs poke, sendPoke
-@docs SubsAction, sendSub, PollPayload, PollBeatPayload, poll, decodePollBeat, decodePollPayload, pollDecode
+@docs SubsAction, sendSub, PollPayload, PollBeatPayload, poll, decodePollBeat, decodePollPayload, pollDecode,
+@docs getErrorPayload, getErrorDesc
 -}
 
 import Http as Http
@@ -470,3 +473,25 @@ sendSub urb sub act =
 poll : Model -> Cmd Msg
 poll urb =
     Http.send PollResponse (getString (pollUrl urb.auth urb.eventId) D.decodeString)
+
+
+{-| Maybe return Urbit error}
+-}
+getErrorPayload : Model -> Maybe ErrPayload
+getErrorPayload model =
+    case model.error of
+        Just err ->
+            err.payload
+
+        Nothing ->
+            Nothing
+
+
+getErrorDesc : Model -> String
+getErrorDesc model =
+    case model.error of
+        Just err ->
+            err.desc
+
+        Nothing ->
+            ""
