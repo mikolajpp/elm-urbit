@@ -1,7 +1,7 @@
 module Urb.Ship
     exposing
         ( Ship
-        , ShipClass
+        , ShipClass(..)
         , emptyShip
         , authShipFromPayload
         , anonAuthShipFromPayload
