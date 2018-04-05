@@ -6,7 +6,7 @@ module Urb.Conn
         , PokePayload
         , SubsPayload
         , subsPayload
-        , SubsAction
+        , SubsAction(..)
         , Subs
         , subsUrl
         , decodeSubsPayload

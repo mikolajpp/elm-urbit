@@ -10,13 +10,15 @@ module Urb.Urb
         , poll
         , getErrorPayload
         , getErrorDesc
+        , isPolling
+        , ConnStatus(..)
         )
 
 {-| Urb connects your application to Urbit ship.
 @docs Model, Msg, update, init, emptyUrb
 @docs sendPoke
 @docs sendSub, poll
-@docs getErrorPayload, getErrorDesc
+@docs getErrorPayload, getErrorDesc, isPolling, ConnStatus
 -}
 
 import Http as Http
@@ -41,11 +43,27 @@ type alias Model msg b =
     , ship : Ship
     , error : Maybe ErrResponse
     , eventId : Int
-    , isPooling : Bool
+    , isPolling : Bool
     , authOptions : AuthOptions
     , toMsg : Msg -> msg
     , codecs : List (Codec b)
+    , connStatus : ConnStatus
     }
+
+
+{-| Connection status
+-}
+type ConnStatus
+    = Disconnected
+    | Connected
+
+
+{-| Whether last subscription
+was successful
+-}
+isPolling : Model msg b -> Bool
+isPolling model =
+    model.isPolling
 
 
 {-| initial Urb state
@@ -57,9 +75,10 @@ emptyUrb toMsg codecs =
     , ship = emptyShip
     , error = Nothing
     , eventId = 1
-    , isPooling = False
+    , isPolling = False
     , toMsg = toMsg
     , codecs = codecs
+    , connStatus = Disconnected
     }
 
 
@@ -101,13 +120,19 @@ update msg model =
             )
 
         InitAuthResponse (Err err) ->
-            ( { model | error = Just <| fromHttpError err }, Cmd.none )
+            ( { model
+                | error = Just <| fromHttpError err
+                , connStatus = Disconnected
+              }
+            , Cmd.none
+            )
 
         AuthResponse (Ok payload) ->
             ( { model
                 | auth = payload
                 , ship =
                     Result.withDefault emptyShip (shipFromAuth payload)
+                , connStatus = Connected
               }
             , Cmd.none
             )
@@ -117,12 +142,18 @@ update msg model =
             if model.authOptions.allowAnon then
                 ( model, requestAuthAsAnon model )
             else
-                ( { model | error = Just <| fromHttpError err }, Cmd.none )
+                ( { model
+                    | error = Just <| fromHttpError err
+                    , connStatus = Disconnected
+                  }
+                , Cmd.none
+                )
 
         AnonAuthResponse (Ok payload) ->
             ( { model
                 | auth = payload
                 , ship = Result.withDefault emptyShip (shipFromAnonAuth payload)
+                , connStatus = Connected
               }
             , Cmd.none
             )
@@ -137,15 +168,15 @@ update msg model =
             ( model, Cmd.none )
 
         SubsResponse (Err err) ->
-            ( { model | error = Just <| fromHttpError err }
+            ( { model | error = Just <| fromHttpError err, isPolling = False }
             , Cmd.none
             )
 
         SubsResponse (Ok payload) ->
-            if model.isPooling then
+            if model.isPolling then
                 ( model, Cmd.none )
             else
-                ( { model | isPooling = True }
+                ( { model | isPolling = True }
                 , poll model
                 )
 

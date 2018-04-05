@@ -4,10 +4,11 @@ module Urb.Ship
         , ShipClass(..)
         , emptyShip
         , shipFromString
+        , toP
         )
 
 {-| Utilities related to Urbit identity handling.
-@docs Ship, ShipClass, emptyShip, shipFromString
+@docs Ship, ShipClass, emptyShip, shipFromString, toP
 -}
 
 import Http
@@ -44,16 +45,24 @@ type ShipClass
 -}
 type alias Ship =
     { class : ShipClass
+    , p : String
     , address : List String
     , shortAddress : String
     }
+
+
+{-| Convert ship to its Urbit `@p` string
+-}
+toP : Ship -> String
+toP ship =
+    ship.p
 
 
 {-| Defines empty ship.
 -}
 emptyShip : Ship
 emptyShip =
-    { class = Comet, address = [], shortAddress = "" }
+    { class = Comet, p = "", address = [], shortAddress = "" }
 
 
 allPartsSatisfy : (String -> Bool) -> List String -> Bool
@@ -143,7 +152,7 @@ shipFromString str =
             Ok parts ->
                 case (shipClassFromParts parts) of
                     Ok class ->
-                        Ok ({ address = parts, shortAddress = shortenAddress class parts, class = class })
+                        Ok ({ address = parts, p = str, shortAddress = shortenAddress class parts, class = class })
 
                     Err er ->
                         Err (interpolate "Malformed ship address: `{0}'" [ er ])

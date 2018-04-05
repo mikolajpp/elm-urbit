@@ -62,11 +62,11 @@ type alias AuthOptions =
     }
 
 
-{-| Default authentication AuthOptions.
+{-| Default authentication options.
 -}
 defaultOptions : AuthOptions
 defaultOptions =
-    { allowAnon = False
+    { allowAnon = True
     }
 
 
