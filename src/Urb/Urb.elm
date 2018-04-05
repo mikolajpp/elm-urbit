@@ -12,28 +12,23 @@ module Urb.Urb
         , getErrorDesc
         , isPolling
         , ConnStatus(..)
+        , getPollData
         )
 
 {-| Urb connects your application to Urbit ship.
 @docs Model, Msg, update, init, emptyUrb
 @docs sendPoke
 @docs sendSub, poll
-@docs getErrorPayload, getErrorDesc, isPolling, ConnStatus
+@docs getErrorPayload, getErrorDesc, isPolling, ConnStatus, getPollData
 -}
 
 import Http as Http
 import Json.Decode as D
-import Json.Encode as E
-import Regex exposing (find, regex)
-import List exposing (..)
-import Dict exposing (Dict)
 import String.Interpolate exposing (interpolate)
 import Urb.Auth exposing (..)
 import Urb.Error exposing (..)
 import Urb.Ship exposing (..)
 import Urb.Conn exposing (..)
-import Urb.Validator exposing (..)
-import Urb.Mark exposing (..)
 
 
 {-| Urb connector state.
@@ -48,6 +43,7 @@ type alias Model msg b =
     , toMsg : Msg -> msg
     , codecs : List (Codec b)
     , connStatus : ConnStatus
+    , pollData : Maybe b
     }
 
 
@@ -66,6 +62,13 @@ isPolling model =
     model.isPolling
 
 
+{-| Retrieve last received polling data
+-}
+getPollData : Model msg b -> Maybe b
+getPollData model =
+    model.pollData
+
+
 {-| initial Urb state
 -}
 emptyUrb : (Msg -> msg) -> List (Codec b) -> Model msg b
@@ -79,6 +82,7 @@ emptyUrb toMsg codecs =
     , toMsg = toMsg
     , codecs = codecs
     , connStatus = Disconnected
+    , pollData = Nothing
     }
 
 
@@ -186,12 +190,31 @@ update msg model =
                 Ok _ ->
                     ( model, poll model )
 
+                -- Decode payload data using codecs
                 Err _ ->
                     let
+                        mdata =
+                            pollDecode str model.codecs
+
                         newModel =
                             { model | eventId = model.eventId + 1 }
                     in
-                        ( newModel, poll newModel )
+                        case mdata of
+                            Nothing ->
+                                ( newModel, poll newModel )
+
+                            Just pay ->
+                                case pay of
+                                    Err str ->
+                                        ( { newModel
+                                            | error = Just { desc = "Codec failure: " ++ str, payload = Nothing }
+                                            , pollData = Nothing
+                                          }
+                                        , poll newModel
+                                        )
+
+                                    Ok data ->
+                                        ( { newModel | pollData = Just data }, poll newModel )
 
         PollResponse (Err err) ->
             ( { model | error = Just <| fromHttpError err }, Cmd.none )
