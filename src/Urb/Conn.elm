@@ -1,4 +1,21 @@
-module Urb.Conn exposing (..)
+module Urb.Conn
+    exposing
+        ( pollDecode
+        , Codec
+        , pollUrl
+        , PokePayload
+        , SubsPayload
+        , subsPayload
+        , SubsAction
+        , Subs
+        , subsUrl
+        , decodeSubsPayload
+        , decodePollBeat
+        , Poke
+        , pokeUrl
+        , pokePayload
+        , decodePokePayload
+        )
 
 {-| #Urbit connector.
 
@@ -14,6 +31,10 @@ fashion.
 
 To send messages to Urbit application, you can perform Pokes, which again
 require specifying the app you want to talk to, as well as wire and mark.
+
+@docs pollDecode, Codec, pollUrl, PokePayload, SubsPayload, decodePollBeat
+@docs SubsAction, Poke, PokePayload, Subs, pokeUrl, pokePayload, decodePokePayload
+@docs decodeSubsPayload, subsUrl, subsPayload
 
 -}
 
@@ -38,17 +59,24 @@ type alias Poke =
     }
 
 
+{-| Poke request response
+-}
 type alias PokePayload =
     { ok : Bool
     }
 
 
+{-| Generate poke url from a poke structure
+-}
 pokeUrl : Poke -> String
 pokeUrl poke =
     interpolate "/~/to/{0}/{1}"
         [ poke.app, poke.mark ]
 
 
+{-| Generate poke request JSON
+from auth and poke data
+-}
 pokePayload : AuthPayload -> Poke -> E.Value
 pokePayload auth poke =
     (E.object
@@ -59,12 +87,16 @@ pokePayload auth poke =
     )
 
 
+{-| Decodes poke response
+-}
 decodePokePayload : D.Decoder PokePayload
 decodePokePayload =
     D.map PokePayload
         (D.field "ok" D.bool)
 
 
+{-| Urbit subscription request
+-}
 type alias Subs =
     { ship : String
     , app : String
@@ -73,6 +105,9 @@ type alias Subs =
     }
 
 
+{-| Subscription request
+response
+-}
 type alias SubsPayload =
     { ok : Bool }
 
@@ -84,6 +119,10 @@ type SubsAction
     | Unsubscribe
 
 
+{-| Generate
+subscription request url
+-}
+subsUrl : AuthPayload -> Subs -> SubsAction -> String
 subsUrl auth subs action =
     let
         act =
@@ -98,6 +137,9 @@ subsUrl auth subs action =
             [ subs.app, subs.wire, act ]
 
 
+{-| Generates subscription request JSON
+-}
+subsPayload : AuthPayload -> Subs -> E.Value
 subsPayload auth sub =
     (E.object
         [ ( "appl", E.string sub.app )
@@ -109,6 +151,8 @@ subsPayload auth sub =
     )
 
 
+{-| Decodes subscription response.
+-}
 decodeSubsPayload : D.Decoder SubsPayload
 decodeSubsPayload =
     D.map SubsPayload
@@ -129,6 +173,10 @@ decodePollBeat =
         (D.field "beat" D.bool)
 
 
+{-| Given authorization token and sequence number,
+generates polling url.
+-}
+pollUrl : AuthPayload -> Int -> String
 pollUrl auth seq =
     interpolate "/~/of/{0}?poll={1}"
         [ auth.ixor, toString seq ]

@@ -87,7 +87,7 @@ type Msg
     | Error String
 
 
-{-| Urbit state machine.
+{-| Update Urbit state machine.
 -}
 update : Msg -> Model m b -> ( Model m b, Cmd m )
 update msg model =
@@ -95,7 +95,6 @@ update msg model =
         Authorize ->
             ( model, requestInitialAuth model )
 
-        -- Authorization response --
         InitAuthResponse (Ok payload) ->
             ( { model | auth = payload, error = Nothing }
             , requestAuthAs model payload.ship
