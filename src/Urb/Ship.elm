@@ -3,12 +3,11 @@ module Urb.Ship
         ( Ship
         , ShipClass(..)
         , emptyShip
-        , authShipFromPayload
-        , anonAuthShipFromPayload
+        , shipFromString
         )
 
 {-| Utilities related to Urbit identity handling.
-@docs Ship, ShipClass, emptyShip, authShipFromPayload, anonAuthShipFromPayload
+@docs Ship, ShipClass, emptyShip, shipFromString
 -}
 
 import Http
@@ -16,7 +15,6 @@ import Json.Decode as D
 import Regex exposing (find, regex)
 import List exposing (..)
 import Dict exposing (Dict)
-import Urb.Auth exposing (..)
 import Urb.Validator exposing (..)
 import String.Interpolate exposing (interpolate)
 
@@ -132,6 +130,9 @@ shortenAddress class parts =
                 "anonymous"
 
 
+{-| Converts a string into
+a Ship, or an error message if the parsing failed.
+-}
 shipFromString : String -> Result String Ship
 shipFromString str =
     let
@@ -149,17 +150,3 @@ shipFromString str =
 
             Err errors ->
                 Err (String.join ", " errors)
-
-
-{-| Obtains ship from received authentication payload.
--}
-authShipFromPayload : AuthPayload -> Result String Ship
-authShipFromPayload payload =
-    shipFromString (Maybe.withDefault "" (head payload.auth))
-
-
-{-| Obtains anonymous ship from received authentication payload.
--}
-anonAuthShipFromPayload : AuthPayload -> Result String Ship
-anonAuthShipFromPayload payload =
-    shipFromString (Maybe.withDefault "" <| Just payload.user)

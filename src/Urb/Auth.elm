@@ -1,10 +1,13 @@
 module Urb.Auth
     exposing
-        ( AuthPayload
+        ( Auth
+        , AuthPayload
         , decodeAuthPayload
         , defaultAuth
         , AuthOptions
         , defaultOptions
+        , shipFromAuth
+        , shipFromAnonAuth
         )
 
 {-| #Auth
@@ -15,7 +18,8 @@ authentication credentials.
 
 ## Authentication data structures
 
-@docs AuthPayload, AuthOptions, defaultOptions, defaultAuth, decodeAuthPayload
+@docs Auth, AuthPayload, AuthOptions, defaultOptions, defaultAuth, decodeAuthPayload
+@docs shipFromAuth, shipFromAnonAuth
 
 -}
 
@@ -25,6 +29,7 @@ import Json.Encode as E
 import Regex exposing (find, regex)
 import List exposing (..)
 import Dict exposing (Dict)
+import Urb.Ship exposing (..)
 
 
 {-| Urbit authentication payload.
@@ -37,6 +42,14 @@ type alias AuthPayload =
     , ship : String
     , auth : List String
     }
+
+
+{-| Different kinds of authentication schemes
+-}
+type Auth
+    = Self
+    | Anon
+    | Remote Ship
 
 
 {-| Authentication options.
@@ -82,3 +95,17 @@ decodeAuthPayload =
         (D.field "ixor" D.string)
         (D.field "ship" D.string)
         (D.field "auth" (D.list D.string))
+
+
+{-| Obtains ship from received authentication payload.
+-}
+shipFromAuth : AuthPayload -> Result String Ship
+shipFromAuth payload =
+    shipFromString (Maybe.withDefault "" (head payload.auth))
+
+
+{-| Obtains anonymous ship from received authentication payload.
+-}
+shipFromAnonAuth : AuthPayload -> Result String Ship
+shipFromAnonAuth payload =
+    shipFromString (Maybe.withDefault "" <| Just payload.user)
