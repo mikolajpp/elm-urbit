@@ -116,6 +116,9 @@ shortenAddress class parts =
         first =
             Maybe.withDefault "" <| List.head parts
 
+        last1 =
+            Maybe.withDefault "" <| List.head <| List.drop ((List.length parts) - 2) parts
+
         last =
             Maybe.withDefault "" <| List.head <| List.drop ((List.length parts) - 1) parts
     in
@@ -124,7 +127,7 @@ shortenAddress class parts =
                 first ++ "_" ++ last
 
             Moon ->
-                first ++ "^" ++ last
+                last1 ++ "^" ++ last
 
             Planet ->
                 first ++ "-" ++ last
