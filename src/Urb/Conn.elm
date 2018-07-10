@@ -4,6 +4,7 @@ module Urb.Conn
         , Codec
         , pollUrl
         , PokePayload
+        , PollPayload(..)
         , SubsPayload
         , subsPayload
         , SubsAction(..)
@@ -34,7 +35,7 @@ require specifying the app you want to talk to, as well as wire and mark.
 
 @docs pollDecode, Codec, pollUrl, PokePayload, SubsPayload, decodePollBeat
 @docs SubsAction, Poke, PokePayload, Subs, pokeUrl, pokePayload, decodePokePayload
-@docs decodeSubsPayload, subsUrl, subsPayload
+@docs decodeSubsPayload, subsUrl, subsPayload, PollPayload
 
 -}
 

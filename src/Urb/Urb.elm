@@ -40,7 +40,7 @@ type alias Model msg b =
     , eventId : Int
     , isPolling : Bool
     , authOptions : AuthOptions
-    , toMsg : Msg -> msg
+    , toMsg : Msg b -> msg
     , codecs : List (Codec b)
     , connStatus : ConnStatus
     , pollData : Maybe b
@@ -71,7 +71,7 @@ getPollData model =
 
 {-| initial Urb state
 -}
-emptyUrb : (Msg -> msg) -> List (Codec b) -> Model msg b
+emptyUrb : (Msg b -> msg) -> List (Codec b) -> Model msg b
 emptyUrb toMsg codecs =
     { auth = defaultAuth
     , authOptions = defaultOptions
@@ -88,7 +88,7 @@ emptyUrb toMsg codecs =
 
 {-| Urb bootup.
 -}
-init : (Msg -> msg) -> List (Codec b) -> ( Model msg b, Cmd msg )
+init : (Msg b -> msg) -> List (Codec b) -> ( Model msg b, Cmd msg )
 init toMsg codecs =
     let
         urb =
@@ -99,20 +99,20 @@ init toMsg codecs =
 
 {-| Urb Msg.
 -}
-type Msg
+type Msg b
     = InitAuthResponse (Result Http.Error AuthPayload)
     | AuthResponse (Result Http.Error AuthPayload)
     | AnonAuthResponse (Result Http.Error AuthPayload)
     | PokeResponse (Result Http.Error PokePayload)
     | SubsResponse (Result Http.Error SubsPayload)
-    | PollResponse (Result Http.Error String)
+    | Packet (Maybe (Result ErrResponse b))
     | Authorize
     | Error String
 
 
 {-| Update Urbit state machine.
 -}
-update : Msg -> Model m b -> ( Model m b, Cmd m )
+update : Msg b -> Model m b -> ( Model m b, Cmd m )
 update msg model =
     case msg of
         Authorize ->
@@ -184,40 +184,28 @@ update msg model =
                 , poll model
                 )
 
-        PollResponse (Ok str) ->
-            case (D.decodeString decodePollBeat str) of
-                -- Do not increase event Id on beat
-                Ok _ ->
-                    ( model, poll model )
+        Packet (Just rpkt) ->
+            case rpkt of
+                Ok pkt ->
+                    ( { model
+                        | eventId = model.eventId + 1
+                        , error = Nothing
+                      }
+                    , poll model
+                    )
 
-                -- Decode payload data using codecs
-                Err _ ->
-                    let
-                        mdata =
-                            pollDecode str model.codecs
+                Err err ->
+                    ( { model
+                        | eventId = model.eventId + 1
+                        , error =
+                            Just err
+                      }
+                    , poll
+                        model
+                    )
 
-                        newModel =
-                            { model | eventId = model.eventId + 1 }
-                    in
-                        case mdata of
-                            Nothing ->
-                                ( newModel, poll newModel )
-
-                            Just pay ->
-                                case pay of
-                                    Err str ->
-                                        ( { newModel
-                                            | error = Just { desc = "Codec failure: " ++ str, payload = Nothing }
-                                            , pollData = Nothing
-                                          }
-                                        , poll newModel
-                                        )
-
-                                    Ok data ->
-                                        ( { newModel | pollData = Just data }, poll newModel )
-
-        PollResponse (Err err) ->
-            ( { model | error = Just <| fromHttpError err }, Cmd.none )
+        Packet Nothing ->
+            ( model, poll model )
 
         Error err ->
             ( model, Cmd.none )
@@ -265,6 +253,20 @@ post url body decode =
         }
 
 
+postString url body =
+    Http.request
+        { method = "POST"
+        , headers =
+            [ Http.header "Content-Type" "application/x-www-form-urlencoded"
+            ]
+        , url = url
+        , body = body
+        , expect = Http.expectString
+        , timeout = Nothing
+        , withCredentials = True
+        }
+
+
 authGet shipName =
     get (interpolate "/~/as/~{0}/~/auth.json" [ shipName ]) decodeAuthPayload
 
@@ -291,12 +293,37 @@ requestAuthAsAnon model =
         Http.send AnonAuthResponse authGetAnon
 
 
+receivePacket : List (Codec b) -> Result Http.Error String -> Msg b
+receivePacket codecs resp =
+    case resp of
+        Err err ->
+            Packet (Just (Err <| fromHttpError err))
+
+        Ok str ->
+            let
+                pkt =
+                    (pollDecode str codecs)
+            in
+                case pkt of
+                    Just (Ok p) ->
+                        Packet <| Just <| Ok <| p
+
+                    Just (Err err) ->
+                        Packet <| Just <| Err <| { desc = "Packet error: " ++ err, payload = Nothing }
+
+                    Nothing ->
+                        Packet Nothing
+
+
 {-| Poke urbit ship
 -}
 sendPoke : Model msg b -> Poke -> Cmd msg
 sendPoke urb poke =
     Cmd.map urb.toMsg <|
-        Http.send PokeResponse (post (pokeUrl poke) (Http.jsonBody (pokePayload urb.auth poke)) decodePokePayload)
+        Http.send (receivePacket urb.codecs)
+            (postString (pokeUrl poke)
+                (Http.jsonBody (pokePayload urb.auth poke))
+            )
 
 
 {-| Urbit subscription interface
@@ -316,7 +343,7 @@ sendSub urb sub act =
 poll : Model msg b -> Cmd msg
 poll urb =
     Cmd.map urb.toMsg <|
-        Http.send PollResponse
+        Http.send (receivePacket urb.codecs)
             (getString (pollUrl urb.auth urb.eventId) D.decodeString)
 
 
