@@ -13,11 +13,12 @@ module Urb.Ship
 
 import Http
 import Json.Decode as D
-import Regex exposing (find, regex)
+import Regex
 import List exposing (..)
 import Dict exposing (Dict)
 import Urb.Validator exposing (..)
 import String.Interpolate exposing (interpolate)
+import Debug exposing (toString)
 
 
 {-| In Urbit, each identity belong to one of the 5 classes.
@@ -107,7 +108,11 @@ shipClassFromParts parts =
                         if (c == 3) || (c == 5) || (c == 9) then
                             Ok Anon
                         else
-                            Err (interpolate "Invalid number of parts for ship address: `{0}'" [ (toString parts) ])
+                            Err
+                                (interpolate
+                                    "Invalid number of parts for ship address: `{0}'"
+                                    [ (toString parts) ]
+                                )
 
 
 shortenAddress : ShipClass -> List String -> String

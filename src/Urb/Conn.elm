@@ -42,11 +42,12 @@ require specifying the app you want to talk to, as well as wire and mark.
 import Http as Http
 import Json.Decode as D
 import Json.Encode as E
-import Regex exposing (find, regex)
+import Regex
 import List exposing (..)
 import Dict exposing (Dict)
 import String.Interpolate exposing (interpolate)
 import Urb.Auth exposing (..)
+import Debug exposing (toString)
 
 
 {-| Urbit poke structure
@@ -240,7 +241,7 @@ decodePollPayload str =
                     PollData data
 
                 Err e ->
-                    PollErr e
+                    PollErr <| toString e
 
 
 {-| A poll codec
@@ -278,7 +279,7 @@ pollDecode pollpay codecs =
             in
                 case decoder of
                     Just dec ->
-                        Just (D.decodeValue (Tuple.second dec) pay.data)
+                        Just <| Result.mapError toString (D.decodeValue (Tuple.second dec) pay.data)
 
                     Nothing ->
                         Nothing

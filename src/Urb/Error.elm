@@ -11,9 +11,10 @@ to handle Urbit API calls errors
 import Http
 import Json.Decode as D
 import Json.Encode as E
-import Regex exposing (find, regex)
+import Regex
 import List exposing (..)
 import Dict exposing (Dict)
+import Debug exposing (toString)
 
 
 {-| Urbit error payload.
@@ -87,7 +88,7 @@ fromHttpError err =
         Http.BadUrl resp ->
             { desc = "Bad URL, unable to perform request", payload = Nothing }
 
-        Http.BadPayload err resp ->
+        Http.BadPayload _ resp ->
             let
                 authErr =
                     (D.decodeString decodeErrAuth resp.body)
@@ -99,5 +100,5 @@ fromHttpError err =
                         else
                             { desc = "Authentication failed. Please login.", payload = Nothing }
 
-                    Err err ->
-                        { desc = "Urb received malformed response: " ++ err, payload = errPayloadFromResp resp }
+                    Err er ->
+                        { desc = "Urb received malformed response: " ++ (toString er), payload = errPayloadFromResp resp }

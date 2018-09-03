@@ -26,7 +26,6 @@ authentication credentials.
 import Http
 import Json.Decode as D
 import Json.Encode as E
-import Regex exposing (find, regex)
 import List exposing (..)
 import Dict exposing (Dict)
 import Urb.Ship exposing (..)

@@ -11,7 +11,7 @@ such as ship names etc.
 
 import Http
 import Json.Decode as D
-import Regex exposing (find, regex)
+import Regex
 import List exposing (..)
 import Dict exposing (Dict)
 import String.Interpolate exposing (interpolate)
@@ -32,12 +32,15 @@ suffixSyllabe =
 
 isValidSyllabe validstr str =
     let
+        regx =
+            Maybe.withDefault Regex.never <| Regex.fromString str
+
         indexes =
-            map .index (find (Regex.AtMost 1) (regex str) validstr)
+            map .index (Regex.findAtMost 1 regx validstr)
     in
         case (head indexes) of
             Just x ->
-                (x % 3) == 0
+                (modBy x 3) == 0
 
             Nothing ->
                 False
@@ -102,7 +105,7 @@ isPartsFormatValid parts =
         else
             let
                 whole =
-                    case trueLen % 4 of
+                    case (modBy trueLen 4) of
                         0 ->
                             1
 
@@ -133,8 +136,8 @@ validPartsFromStr str =
             List.map
                 (\s ->
                     case s of
-                        Err str ->
-                            str
+                        Err erstr ->
+                            erstr
 
                         _ ->
                             ""
@@ -148,8 +151,8 @@ validPartsFromStr str =
                 (List.map
                     (\p ->
                         case p of
-                            Ok p ->
-                                p
+                            Ok pp ->
+                                pp
 
                             _ ->
                                 ""
