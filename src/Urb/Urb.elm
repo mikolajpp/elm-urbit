@@ -2,7 +2,6 @@ module Urb.Urb
     exposing
         ( Model
         , Msg(..)
-        , Packet(..)
         , update
         , init
         , emptyUrb
@@ -100,11 +99,6 @@ init toMsg codecs =
 
 {-| Urb Msg.
 -}
-type Packet b
-    = PollBeat
-    | Packet (Maybe (Result ErrResponse b))
-
-
 type Msg b
     = InitAuthResponse (Result Http.Error AuthPayload)
     | AuthResponse (Result Http.Error AuthPayload)
@@ -199,9 +193,9 @@ update msg model =
                     case rpkt of
                         Just pkt ->
                             case pkt of
-                                Ok _ ->
+                                Ok data ->
                                     ( { model
-                                        | eventId = model.eventId + 1
+                                        | eventId = data.id + 1
                                         , error = Nothing
                                       }
                                     , poll model
@@ -216,7 +210,7 @@ update msg model =
                                     )
 
                         Nothing ->
-                            ( model, Cmd.none )
+                            ( model, poll model )
 
         Error err ->
             ( model, Cmd.none )
@@ -311,23 +305,7 @@ receivePacket codecs resp =
             PacketResponse <| Packet (Just (Err <| fromHttpError err))
 
         Ok str ->
-            let
-                pkt =
-                    (pollDecode str codecs)
-            in
-                case pkt of
-                    Just (Ok p) ->
-                        PacketResponse <| Packet <| Just <| Ok <| p
-
-                    Just (Err err) ->
-                        PacketResponse <|
-                            Packet <|
-                                Just <|
-                                    Err <|
-                                        { desc = "Packet error: " ++ err, payload = Nothing }
-
-                    Nothing ->
-                        PacketResponse <| Packet Nothing
+            PacketResponse (pollDecode str codecs)
 
 
 {-| Poke urbit ship
@@ -335,9 +313,10 @@ receivePacket codecs resp =
 sendPoke : Model msg b -> Poke -> Cmd msg
 sendPoke urb poke =
     Cmd.map urb.toMsg <|
-        Http.send (receivePacket urb.codecs)
-            (postString (pokeUrl poke)
+        Http.send PokeResponse
+            (post (pokeUrl poke)
                 (Http.jsonBody (pokePayload urb.auth poke))
+                decodePokePayload
             )
 
 

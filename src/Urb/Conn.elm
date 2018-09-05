@@ -8,6 +8,8 @@ module Urb.Conn
         , SubsPayload
         , subsPayload
         , SubsAction(..)
+        , Packet(..)
+        , PacketData
         , Subs
         , subsUrl
         , decodeSubsPayload
@@ -47,6 +49,7 @@ import List exposing (..)
 import Dict exposing (Dict)
 import String.Interpolate exposing (interpolate)
 import Urb.Auth exposing (..)
+import Urb.Error exposing (..)
 import Debug exposing (toString)
 
 
@@ -220,9 +223,23 @@ Poll beat indicating we have to continue polling.
 Finally, on error we receive PollErr.
 -}
 type PollPayload
-    = PollData PollDataPayload
-    | PollBeat PollBeatPayload
-    | PollErr String
+    = PollPayData PollDataPayload
+    | PollPayBeat PollBeatPayload
+    | PollPayErr String
+
+
+{-| Poll responses get converted
+into urbit Packet, which is accessible to the user
+-}
+type alias PacketData b =
+    { id : Int
+    , data : b
+    }
+
+
+type Packet b
+    = PollBeat
+    | Packet (Maybe (Result ErrResponse (PacketData b)))
 
 
 {-| Convert received poll string into poll payload.
@@ -232,16 +249,16 @@ decodePollPayload str =
     -- Check if it is a heartbeat
     case (D.decodeString decodePollBeat str) of
         Ok beat ->
-            PollBeat beat
+            PollPayBeat beat
 
         -- Check if we received data
         Err _ ->
             case (D.decodeString decodePollDataPayload str) of
                 Ok data ->
-                    PollData data
+                    PollPayData data
 
                 Err e ->
-                    PollErr <| toString e
+                    PollPayErr <| toString e
 
 
 {-| A poll codec
@@ -259,16 +276,21 @@ we check dispatch codecs on payload to see if it matches
 any signature. If so, we use the poll codec to convert poll payload
 into user desired data structure.
 -}
-pollDecode : String -> List (Codec b) -> Maybe (Result String b)
+pollDecode : String -> List (Codec b) -> Packet b
 pollDecode pollpay codecs =
     case (decodePollPayload pollpay) of
-        PollBeat _ ->
-            Nothing
+        PollPayBeat _ ->
+            PollBeat
 
-        PollErr _ ->
-            Nothing
+        PollPayErr err ->
+            Packet <|
+                Just <|
+                    Err
+                        { desc = "Packet error: " ++ err
+                        , payload = Nothing
+                        }
 
-        PollData pay ->
+        PollPayData pay ->
             let
                 validCodecs =
                     List.filter (\t -> Regex.contains (Tuple.first t) pay.from.path)
@@ -279,7 +301,22 @@ pollDecode pollpay codecs =
             in
                 case decoder of
                     Just dec ->
-                        Just <| Result.mapError toString (D.decodeValue (Tuple.second dec) pay.data)
+                        Packet <|
+                            Just <|
+                                case D.decodeValue (Tuple.second dec) pay.data of
+                                    Err er ->
+                                        Err
+                                            { desc = toString er
+                                            , payload = Nothing
+                                            }
+
+                                    Ok data ->
+                                        Ok { id = pay.id, data = data }
 
                     Nothing ->
-                        Nothing
+                        Packet <|
+                            Just <|
+                                Err
+                                    { desc = "No decoder found for " ++ pay.from.path
+                                    , payload = Nothing
+                                    }
