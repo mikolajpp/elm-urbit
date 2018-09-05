@@ -40,7 +40,7 @@ isValidSyllabe validstr str =
     in
         case (head indexes) of
             Just x ->
-                (modBy x 3) == 0
+                (modBy 3 x) == 0
 
             Nothing ->
                 False
@@ -105,7 +105,7 @@ isPartsFormatValid parts =
         else
             let
                 whole =
-                    case (modBy trueLen 4) of
+                    case (modBy 4 trueLen) of
                         0 ->
                             1
 

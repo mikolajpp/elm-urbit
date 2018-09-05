@@ -34,7 +34,8 @@ import Urb.Conn exposing (..)
 {-| Urb connector state.
 -}
 type alias Model msg b =
-    { auth : AuthPayload
+    { urbitUrl : String
+    , auth : AuthPayload
     , ship : Ship
     , error : Maybe ErrResponse
     , eventId : Int
@@ -71,9 +72,10 @@ getPollData model =
 
 {-| initial Urb state
 -}
-emptyUrb : (Msg b -> msg) -> List (Codec b) -> Model msg b
-emptyUrb toMsg codecs =
-    { auth = defaultAuth
+emptyUrb : String -> (Msg b -> msg) -> List (Codec b) -> Model msg b
+emptyUrb urbiturl toMsg codecs =
+    { urbitUrl = urbiturl
+    , auth = defaultAuth
     , authOptions = defaultOptions
     , ship = emptyShip
     , error = Nothing
@@ -88,11 +90,11 @@ emptyUrb toMsg codecs =
 
 {-| Urb bootup.
 -}
-init : (Msg b -> msg) -> List (Codec b) -> ( Model msg b, Cmd msg )
-init toMsg codecs =
+init : String -> (Msg b -> msg) -> List (Codec b) -> ( Model msg b, Cmd msg )
+init urbiturl toMsg codecs =
     let
         urb =
-            emptyUrb toMsg codecs
+            emptyUrb urbiturl toMsg codecs
     in
         ( urb, requestInitialAuth urb )
 
@@ -272,30 +274,32 @@ postString url body =
         }
 
 
-authGet shipName =
-    get (interpolate "/~/as/~{0}/~/auth.json" [ shipName ]) decodeAuthPayload
+authGet : Model msg b -> String -> Http.Request AuthPayload
+authGet urb shipName =
+    get (interpolate "{0}/~/as/~{1}/~/auth.json" [ urb.urbitUrl, shipName ]) decodeAuthPayload
 
 
-authGetAnon =
-    get "/~/as/anon/~/auth.json" decodeAuthPayload
+authGetAnon : Model msg b -> Http.Request AuthPayload
+authGetAnon urb =
+    get (urb.urbitUrl ++ "/~/as/anon/~/auth.json") decodeAuthPayload
 
 
 requestInitialAuth : Model msg b -> Cmd msg
 requestInitialAuth model =
     Cmd.map model.toMsg <|
-        Http.send InitAuthResponse (Http.get "/~/auth.json" decodeAuthPayload)
+        Http.send InitAuthResponse (Http.get (model.urbitUrl ++ "/~/auth.json") decodeAuthPayload)
 
 
 requestAuthAs : Model msg b -> String -> Cmd msg
 requestAuthAs model shipName =
     Cmd.map model.toMsg <|
-        Http.send AuthResponse (authGet shipName)
+        Http.send AuthResponse (authGet model shipName)
 
 
 requestAuthAsAnon : Model msg b -> Cmd msg
 requestAuthAsAnon model =
     Cmd.map model.toMsg <|
-        Http.send AnonAuthResponse authGetAnon
+        Http.send AnonAuthResponse (authGetAnon model)
 
 
 receivePacket : List (Codec b) -> Result Http.Error String -> Msg b
@@ -314,7 +318,7 @@ sendPoke : Model msg b -> Poke -> Cmd msg
 sendPoke urb poke =
     Cmd.map urb.toMsg <|
         Http.send PokeResponse
-            (post (pokeUrl poke)
+            (post (urb.urbitUrl ++ (pokeUrl poke))
                 (Http.jsonBody (pokePayload urb.auth poke))
                 decodePokePayload
             )
@@ -324,12 +328,16 @@ sendPoke urb poke =
 -}
 sendSub : Model msg b -> Subs -> SubsAction -> Cmd msg
 sendSub urb sub act =
-    Cmd.map urb.toMsg <|
-        Http.send SubsResponse
-            (post (subsUrl urb.auth sub act)
-                (Http.jsonBody (subsPayload urb.auth sub))
-                decodeSubsPayload
-            )
+    let
+        posturl =
+            urb.urbitUrl ++ (subsUrl urb.auth sub act)
+    in
+        Cmd.map urb.toMsg <|
+            Http.send SubsResponse
+                (post posturl
+                    (Http.jsonBody (subsPayload urb.auth sub))
+                    decodeSubsPayload
+                )
 
 
 {-| Listen for Urbit response.
@@ -338,7 +346,7 @@ poll : Model msg b -> Cmd msg
 poll urb =
     Cmd.map urb.toMsg <|
         Http.send (receivePacket urb.codecs)
-            (getString (pollUrl urb.auth urb.eventId) D.decodeString)
+            (getString (urb.urbitUrl ++ (pollUrl urb.auth urb.eventId)) D.decodeString)
 
 
 {-| Maybe return Urbit error}
