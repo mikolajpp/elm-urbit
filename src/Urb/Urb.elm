@@ -2,6 +2,7 @@ module Urb.Urb
     exposing
         ( Model
         , Msg(..)
+        , Packet(..)
         , update
         , init
         , emptyUrb
@@ -99,13 +100,18 @@ init toMsg codecs =
 
 {-| Urb Msg.
 -}
+type Packet b
+    = PollBeat
+    | Packet (Maybe (Result ErrResponse b))
+
+
 type Msg b
     = InitAuthResponse (Result Http.Error AuthPayload)
     | AuthResponse (Result Http.Error AuthPayload)
     | AnonAuthResponse (Result Http.Error AuthPayload)
     | PokeResponse (Result Http.Error PokePayload)
     | SubsResponse (Result Http.Error SubsPayload)
-    | Packet (Maybe (Result ErrResponse b))
+    | PacketResponse (Packet b)
     | Authorize
     | Error String
 
@@ -184,28 +190,33 @@ update msg model =
                 , poll model
                 )
 
-        Packet (Just rpkt) ->
-            case rpkt of
-                Ok pkt ->
-                    ( { model
-                        | eventId = model.eventId + 1
-                        , error = Nothing
-                      }
-                    , poll model
-                    )
+        PacketResponse rsp ->
+            case rsp of
+                PollBeat ->
+                    ( model, poll model )
 
-                Err err ->
-                    ( { model
-                        | eventId = model.eventId + 1
-                        , error =
-                            Just err
-                      }
-                    , poll
-                        model
-                    )
+                Packet rpkt ->
+                    case rpkt of
+                        Just pkt ->
+                            case pkt of
+                                Ok _ ->
+                                    ( { model
+                                        | eventId = model.eventId + 1
+                                        , error = Nothing
+                                      }
+                                    , poll model
+                                    )
 
-        Packet Nothing ->
-            ( model, poll model )
+                                Err err ->
+                                    ( { model
+                                        | error =
+                                            Just err
+                                      }
+                                    , poll model
+                                    )
+
+                        Nothing ->
+                            ( model, Cmd.none )
 
         Error err ->
             ( model, Cmd.none )
@@ -297,7 +308,7 @@ receivePacket : List (Codec b) -> Result Http.Error String -> Msg b
 receivePacket codecs resp =
     case resp of
         Err err ->
-            Packet (Just (Err <| fromHttpError err))
+            PacketResponse <| Packet (Just (Err <| fromHttpError err))
 
         Ok str ->
             let
@@ -306,13 +317,17 @@ receivePacket codecs resp =
             in
                 case pkt of
                     Just (Ok p) ->
-                        Packet <| Just <| Ok <| p
+                        PacketResponse <| Packet <| Just <| Ok <| p
 
                     Just (Err err) ->
-                        Packet <| Just <| Err <| { desc = "Packet error: " ++ err, payload = Nothing }
+                        PacketResponse <|
+                            Packet <|
+                                Just <|
+                                    Err <|
+                                        { desc = "Packet error: " ++ err, payload = Nothing }
 
                     Nothing ->
-                        Packet Nothing
+                        PacketResponse <| Packet Nothing
 
 
 {-| Poke urbit ship
