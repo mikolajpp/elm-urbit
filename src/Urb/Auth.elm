@@ -10,13 +10,36 @@ module Urb.Auth
         , shipFromAnonAuth
         )
 
-{-| #Auth
-This module defines data structures needed for Urbit authentication.
-Any request to the Urbit API requires valid
-authentication credentials.
+{-|
 
 
-## Authentication data structures
+# Auth - Urbit authorization
+
+In order to be able to perform any requests to an Urbit shit,
+a user must obtain credentials first. Urbit generally supports
+three different kind of authorization schemes:
+
+  - Anonymous
+  - Self
+  - Remote
+
+Anonymous credentials do not require valid password
+an can be obtained by anyone, essentially giving user
+a fake comet identity that can still be used for many tasks,
+such as accessing publicly available services.
+
+Self authorization gives user full access to an urbit ship
+and requires knowledge of the secret key.
+
+(*deprecated/not working/instructions unclear*)
+Lastly, it is possible to become
+authenticated as a remote ship. The authorizing ship will
+then perform the call to the remote ship and if the remote
+ship confirms supplied credentials are valid,
+the user is granted remote's ship identity.
+
+
+## Handling authentication
 
 @docs Auth, AuthPayload, AuthOptions, defaultOptions, defaultAuth, decodeAuthPayload
 @docs shipFromAuth, shipFromAnonAuth
@@ -31,7 +54,22 @@ import Dict exposing (Dict)
 import Urb.Ship exposing (..)
 
 
-{-| Urbit authentication payload.
+{-|
+
+
+## Authentication payload
+
+This is the structure that
+is returned by the urbit ship upon
+successful authentication request.
+
+@oryx - secret cookie
+@user - fake comet's identity
+@sein - (??)
+@ixor - hash of something (?)
+@ship - authorizing ship
+@auth - list of obtained identities
+
 -}
 type alias AuthPayload =
     { oryx : String
@@ -43,7 +81,15 @@ type alias AuthPayload =
     }
 
 
-{-| Different kinds of authentication schemes
+{-|
+
+
+## Kinds of authentication schemes
+
+@Self - login with ship's identity.
+@Anon - obtain anonymous comet's identity
+@Remote - login using remote ship's identity.
+
 -}
 type Auth
     = Self
@@ -51,9 +97,16 @@ type Auth
     | Remote Ship
 
 
-{-| Authentication options.
+{-|
 
-  - allowAnon - Allow authenticating as anonymous ship.
+
+## Authentication options
+
+@allowAnon - if set, upon failed authentication using
+`Self` or `Remote` Urb will try to obtain anonymous identity.
+
+Set to false if you don't want to disallow anonymous logins
+in your application.
 
 -}
 type alias AuthOptions =
@@ -61,15 +114,21 @@ type alias AuthOptions =
     }
 
 
-{-| Default authentication options.
+{-|
+
+
+## Default authentication options
+
+Anonymous logins are forbidden by default.
+
 -}
 defaultOptions : AuthOptions
 defaultOptions =
-    { allowAnon = True
+    { allowAnon = False
     }
 
 
-{-| Urbit authentication payload.
+{-| Empty authentication payload.
 -}
 defaultAuth : AuthPayload
 defaultAuth =
@@ -96,7 +155,7 @@ decodeAuthPayload =
         (D.field "auth" (D.list D.string))
 
 
-{-| Obtains ship from received authentication payload.
+{-| Obtains ship from received authentication data.
 -}
 shipFromAuth : AuthPayload -> Result String Ship
 shipFromAuth payload =

@@ -20,20 +20,22 @@ module Urb.Conn
         , decodePokePayload
         )
 
-{-| #Urbit connector.
+{-|
 
-Applications external to Urbit can use
-the ansychronous message passing in order to communicate with applications
-living inside Urbit.
 
-In order to communicate with an Urbit app, you need to first subscribe
-on a correct app, wire, mark connection.
+# Urbit connector
 
-After subscription, your application will receive messages in ansychronous
-fashion.
+Urbit connector facillitates
+communication between your application and
+apps running on the Urbit ship (which should be thought
+of as "backends" to your elm "frontend")
 
-To send messages to Urbit application, you can perform Pokes, which again
-require specifying the app you want to talk to, as well as wire and mark.
+The communication model is the following:
+you can open subscriptions to a specific app running on Urbit.
+Once subscription is opened, you pass messages
+to urbit by poking it on a "wire", and you receive messages by polling
+on a specific wire. Thus communication is ansynchronous, and it is up to
+the application to correctly react on Urbit events.
 
 @docs pollDecode, Codec, pollUrl, PokePayload, SubsPayload, decodePollBeat
 @docs SubsAction, Poke, PokePayload, Subs, pokeUrl, pokePayload, decodePokePayload
@@ -54,6 +56,14 @@ import Debug exposing (toString)
 
 
 {-| Urbit poke structure
+
+@ship - the ship's identity you want to make poke to.
+Usually is the ship you have been identicated to.
+@app - the application you want to communicate with.
+@mark - mark of the data you are passing.
+@wire - arvo wire of the communication channel.
+@xyro - data payload.
+
 -}
 type alias Poke =
     { ship : String
@@ -71,7 +81,7 @@ type alias PokePayload =
     }
 
 
-{-| Generate poke url from a poke structure
+{-| Generate poke url from a poke structure.
 -}
 pokeUrl : Poke -> String
 pokeUrl poke =
@@ -80,7 +90,7 @@ pokeUrl poke =
 
 
 {-| Generate poke request JSON
-from auth and poke data
+from auth and poke payload.
 -}
 pokePayload : AuthPayload -> Poke -> E.Value
 pokePayload auth poke =
@@ -92,7 +102,7 @@ pokePayload auth poke =
     )
 
 
-{-| Decodes poke response
+{-| Decode poke response.
 -}
 decodePokePayload : D.Decoder PokePayload
 decodePokePayload =
@@ -100,7 +110,7 @@ decodePokePayload =
         (D.field "ok" D.bool)
 
 
-{-| Urbit subscription request
+{-| Urbit subscription request structure.
 -}
 type alias Subs =
     { ship : String
@@ -110,8 +120,7 @@ type alias Subs =
     }
 
 
-{-| Subscription request
-response
+{-| Subscription request response.
 -}
 type alias SubsPayload =
     { ok : Bool }
@@ -187,6 +196,7 @@ pollUrl auth seq =
         [ auth.ixor, toString seq ]
 
 
+{-| -}
 type alias PollFromPayload =
     { app : String
     , path : String
